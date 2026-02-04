@@ -1,5 +1,5 @@
 # OwnDNS
-Self-hosted private DNS server.
+Private DNS server based on Unbound.
 
 ## Build
 
