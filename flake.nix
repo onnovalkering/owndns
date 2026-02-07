@@ -9,6 +9,11 @@
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
+
+      groupId = "1000";
+      groupName = "unbound";
+      userId = "1000";
+      userName = "unbound";
     in {
       packages.${system}.default = pkgs.dockerTools.buildLayeredImage {
         name = "owndns";
@@ -17,17 +22,23 @@
         contents = with pkgs; [
           bash
           cacert
+          coreutils
           curl
           unbound
         ];
 
         enableFakechroot = true;
         fakeRootCommands = with pkgs; ''
-          mkdir -p etc/unbound var/lib/unbound bin
+          mkdir -p \
+            bin \
+            etc/unbound/rpz \
+            run/unbound \
+            tmp \
+            var/lib/unbound
 
           ${dockerTools.shadowSetup}
-          groupadd -r -g 1000 unbound
-          useradd -r -u 1000 -g unbound -d /etc/unbound -s /sbin/nologin unbound
+          groupadd -r -g ${groupId} ${groupName}
+          useradd -r -u ${userId} -g ${groupName} -d /etc/unbound -s /sbin/nologin ${userName}
 
           cp ${dns-root-data}/root.key var/lib/unbound/root.key
           cp ${dns-root-data}/root.hints etc/unbound/root.hints
@@ -36,21 +47,26 @@
           cp ${./config/unbound.conf} etc/unbound/unbound.conf
 
           cp ${./scripts/entrypoint.sh} bin/entrypoint
-          chmod +x bin/entrypoint
+          cp ${./scripts/update-blocklists.sh} bin/update-blocklists
+          chmod +x bin/entrypoint bin/update-blocklists
 
-          chown -R unbound:unbound etc var bin
+          chown -R ${userName}:${groupName} bin etc run tmp var
           chmod 755 bin/unbound
-          chmod 770 var/lib/unbound
+          chmod 770 etc/unbound/rpz var/lib/unbound
         '';
 
         config = {
-          User = "1000:1000";
+          User = "${userId}:${groupId}";
           Entrypoint = [ "/bin/entrypoint" ];
 
           ExposedPorts = {
             "53/tcp" = {};
             "53/udp" = {};
           };
+
+          Env = [
+            "SSL_CERT_FILE=/etc/ssl/certs/ca-bundle.crt"
+          ];
 
           Labels = {
             "org.opencontainers.image.revision" = self.rev or "dirty";
