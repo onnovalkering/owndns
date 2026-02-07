@@ -1,10 +1,21 @@
 #!/bin/bash
 set -euo pipefail
 
+: "${BOOTSTRAP_DOH_URL:=https://9.9.9.9/dns-query}"
 : "${HAGEZI_PRO_FILEPATH:=/etc/unbound/rpz/pro.txt}"
 : "${HAGEZI_PRO_URL:=https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/pro.txt}"
 : "${HAGEZI_TIF_FILEPATH:=/etc/unbound/rpz/tif.txt}"
 : "${HAGEZI_TIF_URL:=https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/tif.txt}"
+
+bootstrap=false
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --bootstrap) bootstrap=true; shift ;;
+    *)
+      shift
+      ;;
+  esac
+done
 
 function log() {
   echo "$(date -Iseconds) [update-blocklists] $*"
@@ -45,12 +56,18 @@ function update_blocklist() {
   [[ ! -f "$local_file" ]] && rm -f "$etag_file"
   [[ -f "$etag_file" ]] && local_etag=$(<"$etag_file")
 
+  # When bootstrapping use a DoH endpoint to resolve domains.
+  local doh_args=()
+  if "$bootstrap"; then
+    doh_args=(--doh-url "$BOOTSTRAP_DOH_URL")
+  fi
+
   local response=$(curl \
     --fail --silent --show-error --location --remote-time \
     --retry 3 --retry-delay 5 --connect-timeout 10 --max-time 120 \
     --header "If-None-Match: $local_etag" --dump-header - \
     --write-out "%{http_code}" --output "$temp_file" \
-    "$remote_url"
+    "${doh_args[@]}" "$remote_url"
   )
 
   local http_code="${response: -3}"

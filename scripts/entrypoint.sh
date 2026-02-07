@@ -57,7 +57,7 @@ function shutdown() {
 
 # An initial update is required because the blocklists
 # are not embedded into the OwnDNS container image.
-if ! /bin/update-blocklists; then
+if ! /bin/update-blocklists --bootstrap; then
   err "Failed to perform initial blocklist update."
 fi
 
