@@ -1,0 +1,20 @@
+name: "Check Flake"
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Checkout repository"
+        uses: actions/checkout@v6
+
+      - name: "Install Nix"
+        uses: cachix/install-nix-action@v31
+
+      - name: "Check Flake"
+        run: nix flake check
+
