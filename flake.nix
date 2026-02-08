@@ -18,6 +18,7 @@
       packages.${system}.default = pkgs.dockerTools.buildLayeredImage {
         name = "owndns";
         tag = self.shortRev or "dirty";
+        created = "now";
 
         contents = with pkgs; [
           bash
