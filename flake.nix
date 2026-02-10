@@ -26,7 +26,7 @@
           coreutils
           curl
           gawk
-          unbound
+          (unbound.override { withDynlibModule = true; })
         ];
 
         enableFakechroot = true;
