@@ -9,7 +9,7 @@ An opinionated mashup of existing open-source DNS efforts, packaged for easy sel
     - Cache with minimum TTL and prefetching to keep popular domains warm as TTLs expire.
     - DNS rebinding protection via `private-address` directives.
 - Integrated DNS blocking via [Hagezi](https://github.com/hagezi/dns-blocklists) response policy zone (RPZ) files.
-    - Blocks ads, crytojacking, malware, scams, phishing, and trackers ([PRO](https://github.com/hagezi/dns-blocklists?tab=readme-ov-file#pro), [TIF](https://github.com/hagezi/dns-blocklists?tab=readme-ov-file#tif)).
+    - Blocks ads, cryptojacking, malware, scams, phishing, and trackers ([PRO](https://github.com/hagezi/dns-blocklists?tab=readme-ov-file#pro), [TIF](https://github.com/hagezi/dns-blocklists?tab=readme-ov-file#tif)).
     - Blocks newly registered domains ([NRD](https://github.com/hagezi/dns-blocklists?tab=readme-ov-file#capital_abcd-entropy-nrdsdgas-contain-only-newly-registered-high-entropy-domains-generated-by-domain-generation-algorithms-dgas)) and most abused [TLDs](https://github.com/hagezi/dns-blocklists?tab=readme-ov-file#crystal_ball-most-abused-tlds---protects-against-known-malicious-top-level-domains-recommended-).
 - Automatic periodic blocklist updates with ETag-based conditional fetching and selective reloading.
 - Bootstrap with DNS-over-HTTPS resolution to avoid circular DNS dependency on first boot.
