@@ -25,6 +25,7 @@
           cacert
           coreutils
           curl
+          gawk
           unbound
         ];
 
