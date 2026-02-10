@@ -4,12 +4,16 @@ set -euo pipefail
 : "${UNBOUND_CONFIG_FILEPATH:=/etc/unbound/unbound.conf}"
 : "${UPDATE_INTERVAL_HOURS:=6}"
 
+timestamp() {
+  LC_TIME=C date "+%b %e %H:%M:%S"
+}
+
 function log() {
-  echo "$(date -Iseconds) [entrypoint] $*"
+  echo "$(timestamp) entrypoint[$$] info: $*" >&2
 }
 
 function err() {
-  echo "$(date -Iseconds) [entrypoint] $*" >&2
+  echo "$(timestamp) entrypoint[$$] error: $*" >&2
 }
 
 function run_unbound() {
@@ -27,14 +31,17 @@ function run_updates() {
     sleep "$interval_seconds"
     log "Running update..."
 
-    /bin/update-blocklists && rc=0 || rc=$?
+    updated_zones=$(/bin/update-blocklists) && rc=0 || rc=$?
 
     case "$rc" in
       0)
-        log "Reloading unbound..."
-        if ! unbound-control reload; then
-          err "Failed to reload unbound."
-        fi
+        while IFS= read -r zone; do
+          log "Reloading $zone..."
+
+          if ! unbound-control auth_zone_reload "$zone"; then
+            err "Failed to reload zone: $zone"
+          fi
+        done <<< "$updated_zones"
         ;;
       1)
         err "Failed to update blocklists."

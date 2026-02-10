@@ -26,7 +26,7 @@ timestamp() {
 }
 
 function log() {
-  echo "$(timestamp) update-blocklists[$$] info: $*"
+  echo "$(timestamp) update-blocklists[$$] info: $*" >&2
 }
 
 function err() {
@@ -52,7 +52,8 @@ function update_blocklist() {
   local remote_url="$1"
   local local_file="$2"
   local etag_file="$3"
-  local convert="${4:-false}"
+  local zone_name="$4"
+  local convert="${5:-false}"
 
   local temp_file=$(mktemp)
   trap 'rm -f "$temp_file"' RETURN
@@ -93,7 +94,11 @@ function update_blocklist() {
       remote_etag=$(get_etag_from_response "$response") || true
       [[ -n "$remote_etag" ]] && echo "$remote_etag" > "$etag_file"
 
-      log "$remote_etag"
+      # Output zone name to stdout to tell entrypoint.sh 
+      # which blocklists to selectively reload.
+      if ! "$bootstrap"; then
+        echo "$zone_name"
+      fi
 
       log "Update complete: $local_file"
       return 0
@@ -142,13 +147,14 @@ function convert_domain_file_to_rpz_file_inplace() {
 }
 
 # This will affect the exit code of this script, allowing the Unbound
-# daemon to be conditionally reloaded only when blockist updates occur.
+# daemon to be conditionally reloaded only when blocklist updates occur.
 updated=false
 
 update_blocklist \
   "$HAGEZI_NDR_URL" \
   "$HAGEZI_NDR_FILEPATH" \
   "$HAGEZI_NDR_FILEPATH.etag" \
+  "hagezi-ndr" \
   true \
   && updated=true
 
@@ -156,18 +162,21 @@ update_blocklist \
   "$HAGEZI_PRO_URL" \
   "$HAGEZI_PRO_FILEPATH" \
   "$HAGEZI_PRO_FILEPATH.etag" \
+  "hagezi-pro" \
   && updated=true
 
 update_blocklist \
   "$HAGEZI_TIF_URL" \
   "$HAGEZI_TIF_FILEPATH" \
   "$HAGEZI_TIF_FILEPATH.etag" \
+  "hagezi-tif" \
   && updated=true
 
 update_blocklist \
   "$HAGEZI_TLD_URL" \
   "$HAGEZI_TLD_FILEPATH" \
   "$HAGEZI_TLD_FILEPATH.etag" \
+  "hagezi-tld" \
   && updated=true
 
 if "$updated"; then
