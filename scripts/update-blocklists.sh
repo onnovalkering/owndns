@@ -138,7 +138,7 @@ function convert_domain_file_to_rpz_file_inplace() {
     # Skip comments (lines starting with #) and empty lines
     /^#/ || /^[[:space:]]*$/ { next }
 
-    { print $1 ".rpz.nrd. IN CNAME ." }
+    { print $1 " CNAME ." }
   ' "$domain_file" > "$temp_file"
 
   mv "$temp_file" "$domain_file"
