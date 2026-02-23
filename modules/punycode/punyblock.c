@@ -14,10 +14,11 @@
 #define EXPORT __attribute__((visibility("default")))
 
 /* -------------------------------------------------------------------------
- * Unbound C ABI types (minimal, standalone definitions)
+ * Unbound C ABI types
  * ------------------------------------------------------------------------- */
 
 #define MAX_MODULE 16
+#define RCODE_REFUSED 5
 
 enum module_ext_state {
     module_state_initial = 0,
@@ -48,12 +49,10 @@ struct query_info {
 };
 
 struct module_env {
-    /* opaque, not accessed */
     char _opaque;
 };
 
 struct outbound_entry {
-    /* opaque, not accessed */
     char _opaque;
 };
 
@@ -76,10 +75,25 @@ struct module_qstate {
 };
 
 /* -------------------------------------------------------------------------
- * Unbound logging (provided by the host binary)
+ * Unbound logging
  * ------------------------------------------------------------------------- */
 
 void log_info(const char* fmt, ...);
+
+/* -------------------------------------------------------------------------
+ * Internal helpers
+ * ------------------------------------------------------------------------- */
+
+/* Returns 1 if the 4 bytes at `p` match "xn--" case-insensitively, 0 otherwise. */
+/* Caller must ensure p points to at least 4 readable bytes. */
+static int
+is_xn_prefix(const uint8_t *p)
+{
+    return (p[0] == 'x' || p[0] == 'X') &&
+           (p[1] == 'n' || p[1] == 'N') &&
+            p[2] == '-' &&
+            p[3] == '-';
+}
 
 /* -------------------------------------------------------------------------
  * Exported module functions
@@ -119,13 +133,65 @@ EXPORT void operate(struct module_qstate* qstate, enum module_ev event, int id, 
          *   - set ext_state = module_wait_module (pass to next module)
          */
 
-        /* TODO: walk qname labels and check for xn-- prefix */
+        /* Walk wire-format qname labels, checking each for the "xn--" prefix.
+         *
+         * Wire format: <len><label bytes> ... <len><label bytes> <0x00>
+         * We never read past qname_len bytes. If a label length field would
+         * cause us to exceed that bound the qname is malformed — break and
+         * pass the query through rather than refusing on bad input.
+         */
+        {
+            const uint8_t *p   = qstate->qinfo.qname;
+            size_t         rem = qstate->qinfo.qname_len;
+            int            blocked = 0;
 
-        log_info("punyblock: pass-through (matching not yet implemented)");
-        qstate->ext_state[id] = module_wait_module;
+            while (rem > 0) {
+                uint8_t label_len = p[0];
+
+                /* Zero-length label = root label, end of qname. */
+                if (label_len == 0)
+                    break;
+
+                /* RFC 1035 §2.3.4: max label length is 63. Values above
+                 * (compression pointers, extended label types) must not
+                 * appear in a decompressed qname — treat as malformed. */
+                if (label_len > 63)
+                    break;
+
+                /* Bounds check: length byte + label content must fit. */
+                if ((size_t)(label_len + 1) > rem)
+                    break; /* malformed — pass through */
+
+                /* Punycode label: length >= 4 and starts with "xn--". */
+                if (label_len >= 4 && is_xn_prefix(p + 1)) {
+                    blocked = 1;
+                    break;
+                }
+
+                /* Advance to next label. */
+                p   += label_len + 1;
+                rem -= label_len + 1;
+            }
+
+            if (blocked) {
+                log_info("punyblock: refused query (punycode domain)");
+
+                qstate->return_msg        = NULL;
+                qstate->return_rcode      = RCODE_REFUSED;
+                qstate->ext_state[id]     = module_finished;
+            } else {
+                qstate->ext_state[id] = module_wait_module;
+            }
+        }
     } else if (event == module_event_moddone) {
+        /* Downstream module finished; its return_rcode and return_msg
+         * are already set. Mark ourselves done. */
         qstate->ext_state[id] = module_finished;
     } else {
+        /* Unexpected event (reply, noreply, capsfail, error).
+         * These should not reach us since we never issue outbound
+         * queries ourselves. Signal an error so unbound can handle
+         * it gracefully. */
         qstate->ext_state[id] = module_error;
     }
 }

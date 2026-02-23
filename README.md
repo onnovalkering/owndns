@@ -13,11 +13,10 @@ An opinionated mashup of existing open-source DNS efforts, packaged for easy sel
     - Blocks newly registered domains ([NRD](https://github.com/hagezi/dns-blocklists?tab=readme-ov-file#capital_abcd-entropy-nrdsdgas-contain-only-newly-registered-high-entropy-domains-generated-by-domain-generation-algorithms-dgas)) and most abused [TLDs](https://github.com/hagezi/dns-blocklists?tab=readme-ov-file#crystal_ball-most-abused-tlds---protects-against-known-malicious-top-level-domains-recommended-).
 - Automatic periodic blocklist updates with ETag-based conditional fetching and selective reloading.
 - Bootstrap with DNS-over-HTTPS resolution to avoid circular DNS dependency on first boot.
-
+- IDN homograph attack protection by blocking punycode (`xn--`) domains.
 
 ### Roadmap
 
-- [ ] IDN homograph attack protection by blocking punycode (`xn--`) domains.
 - [ ] Custom allow/deny lists and DNS rewrites via config volume mount.
 
 ## Build

@@ -9,26 +9,11 @@
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
-
+      modules = import ./modules { inherit pkgs; };
       groupId = "1000";
       groupName = "unbound";
       userId = "1000";
       userName = "unbound";
-
-      punyblock = pkgs.stdenv.mkDerivation {
-        pname = "punyblock";
-        version = "0.1.0";
-        src = ./modules;
-        dontConfigure = true;
-        dontFixup = true;
-        buildPhase = ''
-          $CC -shared -Wall -Werror -fpic -fvisibility=hidden -O2 -o punyblock.so punyblock.c
-        '';
-        installPhase = ''
-          mkdir -p $out/lib
-          cp punyblock.so $out/lib/
-        '';
-      };
     in {
       packages.${system}.default = pkgs.dockerTools.buildLayeredImage {
         name = "owndns";
@@ -63,7 +48,7 @@
           rm -f etc/unbound/unbound.conf
           cp ${./config/unbound.conf} etc/unbound/unbound.conf
 
-          cp ${punyblock}/lib/punyblock.so etc/unbound/punyblock.so
+          cp ${modules.punyblock}/lib/punyblock.so etc/unbound/punyblock.so
 
           cp ${./scripts/entrypoint.sh} bin/entrypoint
           cp ${./scripts/update-blocklists.sh} bin/update-blocklists
