@@ -6,8 +6,10 @@ set -euo pipefail
 : "${HAGEZI_NDR_URL:=https://cdn.jsdelivr.net/gh/hagezi/nrd@latest/domains/dga7.txt}"
 : "${HAGEZI_PRO_FILEPATH:=/etc/unbound/rpz/pro.txt}"
 : "${HAGEZI_PRO_URL:=https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/pro.txt}"
-: "${HAGEZI_TIF_FILEPATH:=/etc/unbound/rpz/tif.txt}"
-: "${HAGEZI_TIF_URL:=https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/tif.txt}"
+: "${HAGEZI_TIF_1_FILEPATH:=/etc/unbound/rpz/tif-1.txt}"
+: "${HAGEZI_TIF_1_URL:=https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/tif-1.txt}"
+: "${HAGEZI_TIF_2_FILEPATH:=/etc/unbound/rpz/tif-2.txt}"
+: "${HAGEZI_TIF_2_URL:=https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/tif-2.txt}"
 : "${HAGEZI_TLD_FILEPATH:=/etc/unbound/rpz/tld.txt}"
 : "${HAGEZI_TLD_URL:=https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/spam-tlds-rpz.txt}"
 
@@ -176,9 +178,16 @@ update_blocklist \
   updated=true
 
 update_blocklist \
-  "$HAGEZI_TIF_URL" \
-  "$HAGEZI_TIF_FILEPATH" \
-  "$HAGEZI_TIF_FILEPATH.etag" \
+  "$HAGEZI_TIF_1_URL" \
+  "$HAGEZI_TIF_1_FILEPATH" \
+  "$HAGEZI_TIF_1_FILEPATH.etag" \
+  "hagezi-tif" &&
+  updated=true
+
+update_blocklist \
+  "$HAGEZI_TIF_2_URL" \
+  "$HAGEZI_TIF_2_FILEPATH" \
+  "$HAGEZI_TIF_2_FILEPATH.etag" \
   "hagezi-tif" &&
   updated=true
 

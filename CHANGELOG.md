@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ## [0.2.0] - 2026-07-20
 
+### Added
+
+- Use the new two-part threat intelligence feed (TIF) blocklist.
+
 ### Updated
 
 - Updated `nixpkgs` channel to 26.05, and in turn Unbound to v1.25.1.
