@@ -2,10 +2,11 @@
   description = "OwnDNS - private DNS server based on Unbound.";
 
   inputs = {
-    nixpkgs.url = "github:nixos/nixpkgs/nixos-25.11";
+    nixpkgs.url = "github:nixos/nixpkgs/nixos-26.05";
   };
 
-  outputs = { self, nixpkgs }:
+  outputs =
+    { self, nixpkgs }:
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
@@ -14,7 +15,8 @@
       groupName = "unbound";
       userId = "1000";
       userName = "unbound";
-    in {
+    in
+    {
       packages.${system}.default = pkgs.dockerTools.buildLayeredImage {
         name = "owndns";
         tag = self.shortRev or "dirty";
@@ -64,8 +66,8 @@
           Entrypoint = [ "/bin/entrypoint" ];
 
           ExposedPorts = {
-            "53/tcp" = {};
-            "53/udp" = {};
+            "53/tcp" = { };
+            "53/udp" = { };
           };
 
           Env = [
