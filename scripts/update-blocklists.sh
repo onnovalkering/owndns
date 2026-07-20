@@ -3,7 +3,7 @@ set -euo pipefail
 
 : "${BOOTSTRAP_DOH_URL:=https://9.9.9.9/dns-query}"
 : "${HAGEZI_NDR_FILEPATH:=/etc/unbound/rpz/ndr.txt}"
-: "${HAGEZI_NDR_URL:=https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/domains/dga7.txt}"
+: "${HAGEZI_NDR_URL:=https://cdn.jsdelivr.net/gh/hagezi/nrd@latest/domains/dga7.txt}"
 : "${HAGEZI_PRO_FILEPATH:=/etc/unbound/rpz/pro.txt}"
 : "${HAGEZI_PRO_URL:=https://cdn.jsdelivr.net/gh/hagezi/dns-blocklists@latest/rpz/pro.txt}"
 : "${HAGEZI_TIF_FILEPATH:=/etc/unbound/rpz/tif.txt}"
@@ -14,10 +14,13 @@ set -euo pipefail
 bootstrap=false
 while [[ $# -gt 0 ]]; do
   case "$1" in
-    --bootstrap) bootstrap=true; shift ;;
-    *)
-      shift
-      ;;
+  --bootstrap)
+    bootstrap=true
+    shift
+    ;;
+  *)
+    shift
+    ;;
   esac
 done
 
@@ -37,13 +40,16 @@ function get_etag_from_response() {
   local response="$1"
 
   while IFS= read -r line; do
-    if [[ "${line,,}" == etag:* ]]; then
+    local clean_line
+    clean_line=$(echo "$line" | tr '[:upper:]' '[:lower:]')
+
+    if [[ "$clean_line" == etag:* ]]; then
       local value="${line#*: }"
       value="${value%$'\r'}"
       echo "$value"
       return 0
     fi
-  done <<< "$response"
+  done <<<"$response"
 
   return 1
 }
@@ -55,7 +61,8 @@ function update_blocklist() {
   local zone_name="$4"
   local convert="${5:-false}"
 
-  local temp_file=$(mktemp)
+  local temp_file
+  temp_file=$(mktemp)
   trap 'rm -f "$temp_file"' RETURN
 
   local local_etag=""
@@ -72,45 +79,47 @@ function update_blocklist() {
     doh_args=(--doh-url "$BOOTSTRAP_DOH_URL")
   fi
 
-  local response=$(curl \
-    --fail --silent --show-error --location --remote-time \
-    --retry 3 --retry-delay 5 --connect-timeout 10 --max-time 120 \
-    --header "If-None-Match: $local_etag" --dump-header - \
-    --write-out "%{http_code}" --output "$temp_file" \
-    "${doh_args[@]+"${doh_args[@]}"}" "$remote_url"
+  local response
+  response=$(
+    curl \
+      --fail --silent --show-error --location --remote-time \
+      --retry 3 --retry-delay 5 --connect-timeout 10 --max-time 120 \
+      --header "If-None-Match: $local_etag" --dump-header - \
+      --write-out "%{http_code}" --output "$temp_file" \
+      "${doh_args[@]+"${doh_args[@]}"}" "$remote_url"
   )
 
   local http_code="${response: -3}"
   case "$http_code" in
-    200)
-      if "$convert"; then
-        log "Converting domain file to RPZ file..."
-        convert_domain_file_to_rpz_file_inplace "$temp_file"
-      fi
+  200)
+    if "$convert"; then
+      log "Converting domain file to RPZ file..."
+      convert_domain_file_to_rpz_file_inplace "$temp_file"
+    fi
 
-      mv "$temp_file" "$local_file"
+    mv "$temp_file" "$local_file"
 
-      # Overwrite local etag with remote etag in etag file.
-      remote_etag=$(get_etag_from_response "$response") || true
-      [[ -n "$remote_etag" ]] && echo "$remote_etag" > "$etag_file"
+    # Overwrite local etag with remote etag in etag file.
+    remote_etag=$(get_etag_from_response "$response") || true
+    [[ -n "$remote_etag" ]] && echo "$remote_etag" >"$etag_file"
 
-      # Output zone name to stdout to tell entrypoint.sh 
-      # which blocklists to selectively reload.
-      if ! "$bootstrap"; then
-        echo "$zone_name"
-      fi
+    # Output zone name to stdout to tell entrypoint.sh
+    # which blocklists to selectively reload.
+    if ! "$bootstrap"; then
+      echo "$zone_name"
+    fi
 
-      log "Update complete: $local_file"
-      return 0
-      ;;
-    304)
-      log "Update skipped: $local_file (Not Modified)"
-      return 2
-      ;;
-    *)
-      err "Update failed: $local_file (HTTP $http_code)"
-      return 1
-      ;;
+    log "Update complete: $local_file"
+    return 0
+    ;;
+  304)
+    log "Update skipped: $local_file (Not Modified)"
+    return 2
+    ;;
+  *)
+    err "Update failed: $local_file (HTTP $http_code)"
+    return 1
+    ;;
   esac
 }
 
@@ -122,7 +131,8 @@ function convert_domain_file_to_rpz_file_inplace() {
     return 1
   fi
 
-  local temp_file=$(mktemp)
+  local temp_file
+  temp_file=$(mktemp)
   trap 'rm -f "$temp_file"' RETURN
 
   local serial
@@ -139,7 +149,7 @@ function convert_domain_file_to_rpz_file_inplace() {
     /^#/ || /^[[:space:]]*$/ { next }
 
     { print $1 " CNAME ." }
-  ' "$domain_file" > "$temp_file"
+  ' "$domain_file" >"$temp_file"
 
   mv "$temp_file" "$domain_file"
 
@@ -155,34 +165,32 @@ update_blocklist \
   "$HAGEZI_NDR_FILEPATH" \
   "$HAGEZI_NDR_FILEPATH.etag" \
   "hagezi-ndr" \
-  true \
-  && updated=true
+  true &&
+  updated=true
 
 update_blocklist \
   "$HAGEZI_PRO_URL" \
   "$HAGEZI_PRO_FILEPATH" \
   "$HAGEZI_PRO_FILEPATH.etag" \
-  "hagezi-pro" \
-  && updated=true
+  "hagezi-pro" &&
+  updated=true
 
 update_blocklist \
   "$HAGEZI_TIF_URL" \
   "$HAGEZI_TIF_FILEPATH" \
   "$HAGEZI_TIF_FILEPATH.etag" \
-  "hagezi-tif" \
-  && updated=true
+  "hagezi-tif" &&
+  updated=true
 
 update_blocklist \
   "$HAGEZI_TLD_URL" \
   "$HAGEZI_TLD_FILEPATH" \
   "$HAGEZI_TLD_FILEPATH.etag" \
-  "hagezi-tld" \
-  && updated=true
+  "hagezi-tld" &&
+  updated=true
 
 if "$updated"; then
   exit 0
 else
   exit 2
 fi
-
-
